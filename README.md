@@ -40,7 +40,7 @@ dotnet test
 dotnet run --project src/HealthBr.Api
 ```
 
-A API sobe nas portas definidas em `src/HealthBr.Api/Properties/launchSettings.json` (perfil `http`: `localhost:5153`). Segredos locais (connection string, chave JWT, CORS) ficam em `dotnet user-secrets` — nunca em `appsettings` commitados (detalhes na task 7.3).
+A API sobe em `https://localhost:5001` (perfil `https`; o perfil `http` usa `localhost:5000`), conforme o spec (seção 12.2). Segredos locais (connection string, chave JWT, CORS) ficam em `dotnet user-secrets` — nunca em `appsettings` commitados (detalhes na task 7.3).
 
 ## Documentação
 
