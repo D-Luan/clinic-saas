@@ -480,3 +480,18 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+##
+## HealthBr (spec 13.2.1)
+##
+
+# Local app settings (secrets go in user-secrets / Key Vault)
+appsettings.Development.json
+appsettings.*.Local.json
+
+# Frontend build output and local env
+dist/
+.env.local
+
+# Solution user state
+*.slnx.user
