@@ -20,7 +20,7 @@
 
 <!-- Para cada task desta milestone, siga o fluxo autônomo de Git descrito em AGENTS.md. Abra um PR por task. Não faça merge — aguarde revisão do usuário. -->
 
-- [ ] **0.1** Criar solution .NET, 4 projetos (Domain, Application, Infrastructure, Api), solution file, `.gitignore`, `.editorconfig`, `README.md` inicial, estrutura de pastas do spec seção 6.1. Primeiro commit + tag inicial. **Spec ref: 6.1, 13**
+- [x] **0.1** Criar solution .NET, 4 projetos (Domain, Application, Infrastructure, Api), solution file, `.gitignore`, `.editorconfig`, `README.md` inicial, estrutura de pastas do spec seção 6.1. Primeiro commit + tag inicial. **Spec ref: 6.1, 13**
 
 ## Milestone 1 — Backend base (4 tasks)
 
