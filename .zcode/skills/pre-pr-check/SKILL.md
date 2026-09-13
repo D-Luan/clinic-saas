@@ -59,3 +59,58 @@ description: Use before committing or opening a PR to validate the Definition of
 ## Referências
 
 - `docs/spec.md` seções 8.2, 13.2 (git workflow), 13.3, 13.4, 15.10
+
+## Fluxo autônomo de Git (executar após passar pelo checklist acima)
+
+Após validar que o código está pronto para commit, executar:
+
+1. Verificar branch atual: `git branch --show-current`
+   - Deve estar em `feat/<task-id>-<short-desc>`. Se estiver em `main`, **PARAR** e perguntar ao usuário.
+2. Stage das mudanças: `git add .`
+3. Verificar diff staged: `git diff --cached --stat` — confirmar que não há arquivos inesperados (`.env`, segredos, `bin/`, `obj/`, `node_modules/`).
+4. Commit: `git commit -m "feat: <description>" -m "Refs: <task-id>"`
+5. Push: `git push -u origin <branch>`
+6. Abrir PR:
+
+   ```bash
+   gh pr create \
+     --title "feat: <description>" \
+     --body "Closes task <task-id>.
+
+   ## O que foi feito
+   - <bullet 1>
+   - <bullet 2>
+
+   ## Decisões tomadas
+   - <decisão 1>
+
+   ## Dívidas/Dúvidas
+   - <item se houver>" \
+     --base main
+   ```
+
+7. Marcar `[x]` no ROADMAP.md na task correspondente
+8. Commit do ROADMAP: `git commit -m "docs: mark task <task-id> as done"`
+9. Push: `git push`
+10. Reportar ao usuário: URL do PR, resumo das decisões, dúvidas e próxima task sugerida.
+
+### Quando NÃO executar o fluxo autônomo
+
+PARE antes de commitar e pergunte ao usuário se:
+
+- Testes falharam 3+ vezes consecutivas
+- Há ambiguidade no spec sobre o que implementar
+- A task envolve segurança (auth, JWT, cookies, headers HTTP, multi-tenant isolation)
+- A task envolve timezone ou conversão de datas
+- Há configuração de ambiente faltando (git auth, gh CLI, secrets, user-secrets)
+- O spec parece contraditório em alguma parte relevante à task
+
+### Proibições absolutas
+
+- ❌ `git merge` (apenas o usuário faz merge via PR)
+- ❌ `git push --force` em `main`
+- ❌ `git commit` em `main` direto
+- ❌ `git commit --no-verify`
+- ❌ Commitar arquivos `.env`, `appsettings.Development.json`, ou qualquer segredo
+- ❌ Apagar branches remotas sem permissão explícita
+- ❌ Rebase interativo sem pedir

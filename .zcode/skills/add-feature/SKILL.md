@@ -11,6 +11,12 @@ description: Use when creating a new feature end-to-end (entity + use case + end
 - Confirmar com o usuário qual feature está sendo criada e qual task do `ROADMAP.md` ela atende.
 - Estar em uma feature branch (`feat/<task-id>-<short-desc>`), nunca em `main`.
 
+## Escopo rígido
+
+Implemente **estritamente** o que está descrito na task. Features extras ("já que estou aqui, vou adicionar X") são **PROIBIDAS**. Se identificar uma melhoria ou feature que parece útil, anote em `docs/TODO.md` (crie o arquivo se não existir) e continue na task original.
+
+Se sentir necessidade de adicionar algo fora do escopo, **PARE e pergunte** ao usuário antes de prosseguir.
+
 ## Passos obrigatórios (em ordem)
 
 ### Backend
@@ -73,6 +79,12 @@ Antes de marcar a feature como pronta, verificar:
 - [ ] Foco visível, contraste AA, navegável por teclado
 - [ ] Nenhum anti-padrão da seção 8.2 do spec
 - [ ] OpenAPI atualizado para endpoints novos
+- [ ] Branch criada com nome correto: `feat/<task-id>-<short-desc>`
+- [ ] Commit feito com mensagem conventional + `Refs: <task-id>`
+- [ ] Push realizado para origin
+- [ ] PR aberto via `gh pr create`
+- [ ] Task marcada como `[x]` no ROADMAP.md
+- [ ] Commit do ROADMAP.md feito e pushed
 
 ## Referências
 

@@ -35,17 +35,25 @@ HealthBr — SaaS multi-tenant de gestão de clínicas (MVP). Projeto de teste d
 4. **Toda funcionalidade vem com teste.** Backend → teste de integração. Frontend → teste de unidade.
 5. **Mantenha o escopo.** Features fora da seção 2 do spec não devem ser implementadas.
 6. **UI sem anti-padrões.** A seção 8 do spec é mandatória.
+7. **Fluxo autônomo com salvaguardas.** Para cada task: crie branch, implemente, teste, commit, push, abra PR via `gh`. Pare e pergunte se: testes falharem 3x consecutivas, houver ambiguidade no spec, decisão de segurança/auth/timezone, ou necessidade de feature fora de escopo. **Nunca faça merge do PR** — merge é manual do usuário.
 
 ## O que NÃO fazer
 
-- ❌ Commits direto em `main` — sempre feature branch + PR (squash and merge)
+- ❌ Fazer merge de PR (apenas o usuário faz, via GitHub)
+- ❌ Force-push para `main`
+- ❌ Commit direto em `main` (sempre feature branch + PR)
+- ❌ Commitar segredos de qualquer tipo (tokens, senhas, chaves JWT, connection strings — inclusive em `appsettings.json` ou `.env`)
+- ❌ Pular testes/hook com `--no-verify`
+- ❌ Adicionar features extras além do escopo da task (anote em `docs/TODO.md`)
+- ❌ Rebase interativo sem pedir
+- ❌ Apagar branches remotas sem permissão
+- ❌ Continuar tentando após 3 falhas consecutivas sem perguntar ao usuário
 - ❌ DataAnnotations (use FluentValidation)
 - ❌ axios (use `fetch` via `shared/lib/api.ts`)
 - ❌ Redux (use Zustand)
 - ❌ localStorage para tokens
 - ❌ `rounded-2xl`, emojis, gradientes roxo-rosa, glassmorphism
 - ❌ `console.log`, `debugger`, `TODO` sem issue
-- ❌ Commitar segredos em `appsettings.json` ou `.env`
 - ❌ Cores Tailwind default (`text-blue-500`) — use tokens CSS da seção 8.3
 - ❌ Moq (use NSubstitute) / Serilog / rich-text / Upload de arquivos (fora do MVP, seção 2)
 
@@ -64,4 +72,49 @@ HealthBr — SaaS multi-tenant de gestão de clínicas (MVP). Projeto de teste d
 3. Crie uma branch: `git checkout -b feat/<task-id>-<short-desc>`.
 4. Implemente seguindo a skill `.zcode/skills/add-feature/SKILL.md` se aplicável.
 5. Rode o checklist da skill `.zcode/skills/pre-pr-check/SKILL.md` antes de commitar.
-6. Abra PR referenciando a task.
+6. Siga o **Fluxo autônomo de Git** (seção abaixo) para commit, push e PR via `gh`.
+
+## Fluxo autônomo de Git (uma task = uma sessão)
+
+Para cada task do ROADMAP:
+
+1. `git checkout main && git pull` (sincroniza)
+2. `git checkout -b feat/<task-id>-<short-desc>` (ex.: `feat/3-1-patients-crud`)
+3. Implemente a task seguindo spec + skill `add-feature`
+4. Rode testes e lint:
+   - `dotnet test` deve passar
+   - `cd frontend && pnpm test` deve passar (se tocou frontend)
+   - `dotnet format --verify-no-changes` deve estar limpo
+   - `cd frontend && pnpm lint` deve estar limpo
+5. Rode o checklist da skill `pre-pr-check`
+6. Commit: `git commit -m "feat: <description>" -m "Refs: <task-id>"`
+7. Push: `git push -u origin feat/<task-id>-<short-desc>`
+8. Abra PR: `gh pr create --title "feat: <description>" --body "Closes task <task-id>.\n\n${resumo}" --base main`
+9. Marque `[x]` no ROADMAP.md na task correspondente
+10. Commit: `git commit -m "docs: mark task <task-id> as done"`
+11. Push: `git push`
+12. Reporte ao usuário: URL do PR, resumo das decisões, dúvidas e próxima task sugerida
+
+O agente **não faz merge** — o PR aguarda revisão e merge manual do usuário.
+
+### Momentos de parada obrigatória
+
+PARE e pergunte ao usuário se:
+
+- Testes falharem 3 vezes consecutivas na mesma task
+- Encontrar ambiguidade não coberta pelo spec
+- Precisar decidir algo que afeta segurança (auth, JWT, cookies, headers HTTP)
+- Precisar decidir algo que afeta timezone ou multi-tenant isolation
+- Identificar necessidade de feature fora do escopo da task atual
+- Faltar configuração de ambiente (auth do git, gh CLI, secrets, user-secrets)
+- O spec parecer contraditório em alguma parte
+
+### Momentos em que pode continuar sozinho
+
+- Escolha de nomes de variáveis seguindo convenção
+- Organização interna de arquivos dentro da feature
+- Escolha de qual componente shadcn/ui usar
+- Detalhes de implementação dentro do escopo da task
+- Pequenos ajustes de layout dentro do design system (spec seção 8)
+
+Detalhes completos: `docs/spec.md` seções 13.2.1.1, 13.5 e 13.6.

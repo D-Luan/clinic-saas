@@ -636,6 +636,19 @@ Script `scripts/seed-dev.sql` (ou `dotnet run --project src/HealthBr.Api -- seed
   - Exigir no mínimo 1 approval (pode ser o próprio usuário revisando o PR do agente).
   - Proibir force-push em `main`.
 
+#### 13.2.1.1 — Workflow autônomo via agente
+
+O agente executa o ciclo completo de entrega de forma autônoma — branch, implementação, testes, commit, push e PR — mas **nunca faz merge**. O merge em `main` é ação exclusiva do usuário, via PR.
+
+Sequência operacional esperada:
+
+- **Criar branch:** `git checkout -b feat/<task-id>-<short-desc>`
+- **Commit:** `git commit -m "feat: <description>" -m "Refs: <task-id>"`
+- **Push:** `git push -u origin <branch-name>`
+- **Abrir PR:** `gh pr create --title "feat: <description>" --body "Closes task <task-id>.\n\n${body}" --base main`
+- **Após PR aberto:** marcar a task como `[x]` no `ROADMAP.md` e commitar: `git commit -m "docs: mark task <task-id> as done"`. A atualização do ROADMAP vai na **mesma branch** (commit novo na branch; amend apenas antes do PR ser aberto, se preferir histórico mais limpo).
+- **Limites operacionais:** o agente NÃO faz rebase interativo, squash manual ou merge de qualquer tipo — apenas criar branch, commitar, pushar e abrir PR.
+
 ### 13.3 Linting e formatação
 - **C#:** `.editorconfig` com regras da Microsoft. `dotnet format` no CI.
 - **TypeScript:** ESLint + Prettier. Configuração `@typescript-eslint/recommended` + `eslint-plugin-react-hooks`. Prettier com `singleQuote: true`, `semi: true`, `printWidth: 100`.
@@ -655,10 +668,86 @@ Uma task está "done" quando:
 - [ ] PR revisado (mesmo que pelo próprio agente em modo auto-review).
 
 ### 13.5 Estratégia de trabalho do agente de IA
-- O agente deve abrir PRs para cada feature, não commitar direto em `main`.
-- Cada PR deve referenciar a seção do spec implementada.
-- O agente deve rodar testes e lint localmente antes de abrir PR.
-- Em caso de ambiguidade não coberta pelo spec, o agente deve parar e perguntar — não inventar.
+
+O agente trabalha de forma **autônoma com salvaguardas**: executa o ciclo completo de entrega sozinho, mas respeita limites explícitos de parada e proibições absolutas.
+
+#### Fluxo autônomo padrão (uma task = uma sessão = um PR)
+
+1. Sincronizar: `git checkout main && git pull`
+2. Criar branch: `git checkout -b feat/<task-id>-<short-desc>`
+3. Implementar a task seguindo o spec e as skills aplicáveis (`add-feature`, `ui-component`).
+4. Rodar testes e lint (`dotnet test`, `pnpm test`, `dotnet format --verify-no-changes`, `pnpm lint`) e o checklist da skill `pre-pr-check`.
+5. Commitar: `git commit -m "feat: <description>" -m "Refs: <task-id>"`
+6. Pushar: `git push -u origin <branch-name>`
+7. Abrir PR: `gh pr create --title "feat: <description>" --body "Closes task <task-id>.\n\n${body}" --base main`
+8. Marcar a task como `[x]` no `ROADMAP.md` e commitar essa atualização (`docs: mark task <task-id> as done`) na mesma branch, seguido de push.
+
+#### Limites de autonomia — o agente PARA e pergunta ao usuário quando:
+
+- Testes falharem **3 vezes consecutivas** na mesma task.
+- Encontrar ambiguidade não coberta pelo spec.
+- Precisar decidir algo que afeta **segurança** (auth, JWT, cookies, headers HTTP), **timezone** ou **isolamento multi-tenant**.
+- Identificar necessidade de feature **fora do escopo** da task atual.
+- Faltar configuração de ambiente (auth do git, `gh` CLI, secrets, user-secrets).
+
+#### Proibições absolutas
+
+- ❌ Nunca fazer **merge** de PR (apenas o usuário).
+- ❌ Nunca fazer **force-push** para `main`.
+- ❌ Nunca commitar em `main` direto (sempre feature branch).
+- ❌ Nunca commitar **segredos** (tokens, senhas, chaves JWT, connection strings).
+- ❌ Nunca pular testes/hook com `--no-verify`.
+- ❌ Nunca adicionar features extras "porque é fácil" (anotar em `docs/TODO.md` e seguir).
+
+#### Quando o agente PODE prosseguir sem perguntar
+
+- Escolha de nomes de variáveis seguindo a convenção do spec (seção 13.1).
+- Organização interna de arquivos dentro da feature.
+- Escolha de qual componente shadcn/ui usar para um caso.
+- Detalhes de implementação dentro do escopo da task.
+
+#### Formato de comunicação ao final de cada task
+
+O relatório final ao usuário deve conter:
+
+1. **URL do PR criado.**
+2. **Resumo das decisões tomadas** (3-5 bullets).
+3. **Dívidas técnicas ou dúvidas** que ficaram (se houver).
+4. **Próxima task sugerida** do `ROADMAP.md`.
+
+### 13.6 Autonomia do agente e momentos de parada
+
+Esta seção consolida as regras de autonomia. As mesmas regras são reforçadas em `AGENTS.md` e nas skills `.zcode/skills/pre-pr-check/` e `.zcode/skills/add-feature/`.
+
+#### Quando o agente deve parar e perguntar (lista consolidada)
+
+- Testes falhando 3 vezes consecutivas na mesma task.
+- Ambiguidade não coberta pelo spec.
+- Decisão que afete segurança (auth, JWT, cookies, headers HTTP) ou isolamento multi-tenant.
+- Decisão que afete timezone ou conversão de datas.
+- Necessidade de feature fora do escopo da task atual.
+- Spec contraditório ou aparentemente duplicado em partes relevantes à task.
+- Falta de configuração de ambiente (git auth, `gh` CLI, secrets, user-secrets, Docker para Testcontainers).
+
+#### Quando o agente pode continuar sozinho (lista consolidada)
+
+- Nomes de variáveis/arquivos seguindo as convenções (seções 6 e 13.1).
+- Organização interna de arquivos dentro da feature.
+- Escolha de componente shadcn/ui adequado ao caso.
+- Detalhes de implementação dentro do escopo da task.
+- Pequenos ajustes de layout dentro do design system (seção 8).
+
+#### Como o agente deve se comunicar ao parar
+
+Ao parar, o agente deve apresentar: (a) uma **pergunta clara e específica**, (b) o **contexto do que já tentou** (comandos, erros, trechos relevantes), e (c) as **opções que considera** viáveis, com sua recomendação. Nunca parar com "não funcionou" sem detalhes.
+
+#### Política de retry
+
+Máximo de **3 tentativas** para um mesmo problema (teste falhando, build quebrando, comando com erro). Após a 3ª falha consecutiva, parar e perguntar ao usuário com o contexto acumulado.
+
+#### Política de escopo
+
+Implementar **estritamente** o que está descrito na task. Melhorias ou ideias identificadas durante o trabalho que ficam fora do escopo devem ser anotadas em `docs/TODO.md` (criar o arquivo se não existir) e a task original segue sem desvio.
 
 ---
 
