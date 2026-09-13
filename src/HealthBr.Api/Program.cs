@@ -11,7 +11,8 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
         "Connection string 'DefaultConnection' not found. Configure it via user-secrets (dev) or environment variable (spec 12.2/11.2).");
 
 builder.Services.AddDbContext<HealthBrDbContext>(options =>
-    options.UseSqlServer(connectionString, sqlOptions => sqlOptions.EnableRetryOnFailure()));
+    options.UseSqlServer(connectionString, sqlOptions =>
+        sqlOptions.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorNumbersToAdd: null)));
 
 builder.Services.AddScoped<ITenantContext, TenantContext>();
 
