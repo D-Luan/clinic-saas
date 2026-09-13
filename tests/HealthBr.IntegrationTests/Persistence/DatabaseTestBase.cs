@@ -10,33 +10,37 @@ namespace HealthBr.IntegrationTests.Persistence;
 public abstract class DatabaseTestBase : IAsyncLifetime
 {
     private readonly SqlServerFixture _fixture;
-    private SqlConnection? _connection;
-    private SqlTransaction? _transaction;
 
     protected DatabaseTestBase(SqlServerFixture fixture)
     {
         _fixture = fixture;
     }
 
-    public async Task InitializeAsync()
+    // Exposed so API-level tests can wire the WebApplicationFactory onto the
+    // same connection/transaction pair (task 1.3).
+    protected SqlConnection Connection { get; private set; } = null!;
+
+    protected SqlTransaction Transaction { get; private set; } = null!;
+
+    public virtual async Task InitializeAsync()
     {
-        _connection = new SqlConnection(_fixture.ConnectionString);
-        await _connection.OpenAsync();
-        _transaction = (SqlTransaction)await _connection.BeginTransactionAsync();
+        Connection = new SqlConnection(_fixture.ConnectionString);
+        await Connection.OpenAsync();
+        Transaction = (SqlTransaction)await Connection.BeginTransactionAsync();
     }
 
-    public async Task DisposeAsync()
+    public virtual async Task DisposeAsync()
     {
         // Spec 3.5: every test runs inside a transaction that is rolled back.
-        if (_transaction is not null)
+        if (Transaction is not null)
         {
-            await _transaction.RollbackAsync();
-            await _transaction.DisposeAsync();
+            await Transaction.RollbackAsync();
+            await Transaction.DisposeAsync();
         }
 
-        if (_connection is not null)
+        if (Connection is not null)
         {
-            await _connection.DisposeAsync();
+            await Connection.DisposeAsync();
         }
     }
 
@@ -49,11 +53,11 @@ public abstract class DatabaseTestBase : IAsyncLifetime
         // user-initiated rollback transaction above. Retry is an Azure SQL
         // transient-fault concern, configured in the Api bootstrap.
         var options = new DbContextOptionsBuilder<HealthBrDbContext>()
-            .UseSqlServer(_connection!)
+            .UseSqlServer(Connection)
             .Options;
 
         var context = new HealthBrDbContext(options, tenantContext);
-        context.Database.UseTransaction(_transaction);
+        context.Database.UseTransaction(Transaction);
         return context;
     }
 }

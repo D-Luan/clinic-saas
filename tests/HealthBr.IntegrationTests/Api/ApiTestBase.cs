@@ -1,0 +1,145 @@
+using System.Net.Http.Json;
+using System.Text.Json;
+
+using HealthBr.Application.Common.Security;
+using HealthBr.Domain.Entities;
+using HealthBr.Domain.Enums;
+using HealthBr.Infrastructure.Auth;
+using HealthBr.IntegrationTests.Persistence;
+
+namespace HealthBr.IntegrationTests.Api;
+
+[Collection(DatabaseCollection.Name)]
+public abstract class ApiTestBase : DatabaseTestBase
+{
+    protected const string DefaultPassword = "Doctor@123";
+
+    private readonly TestLoggerProvider _loggerProvider = new();
+
+    private AuthApiFactory _factory = null!;
+
+    private HttpClient _client = null!;
+
+    protected ApiTestBase(SqlServerFixture fixture)
+        : base(fixture)
+    {
+    }
+
+    protected HttpClient Client => _client;
+
+    protected TenantProbe TenantProbe { get; } = new();
+
+    protected IReadOnlyList<LogEntry> Logs => _loggerProvider.Entries;
+
+    protected void ClearLogs() => _loggerProvider.Clear();
+
+    public override async Task InitializeAsync()
+    {
+        await base.InitializeAsync();
+
+        // Feeds the Program.cs startup guards (connection string + JWT
+        // signing key) through a configuration source the deferred test host
+        // reads before the application builder runs.
+        Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", "Server=placeholder-see-db-wiring");
+        Environment.SetEnvironmentVariable("Jwt__SigningKey", AuthApiFactory.TestSigningKey);
+
+        _factory = new AuthApiFactory(Connection, Transaction, _loggerProvider, TenantProbe);
+        _client = _factory.CreateClient();
+    }
+
+    public override async Task DisposeAsync()
+    {
+        _client.Dispose();
+        await _factory.DisposeAsync();
+        await base.DisposeAsync();
+    }
+
+    protected async Task<User> SeedUserAsync(
+        Guid tenantId,
+        string email,
+        string password = DefaultPassword,
+        UserRole role = UserRole.Doctor)
+    {
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Name = "Dra. Ana Souza",
+            Email = email,
+            PasswordHash = new PasswordHasher().HashPassword(password),
+            Role = role,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+
+        await using (var seed = CreateContext())
+        {
+            seed.Users.Add(user);
+            await seed.SaveChangesAsync();
+        }
+
+        return user;
+    }
+
+    protected async Task<RefreshToken> SeedRefreshTokenAsync(
+        User user,
+        string tokenHash,
+        DateTime? expiresAt = null,
+        DateTime? revokedAt = null)
+    {
+        var entity = new RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            TenantId = user.TenantId,
+            UserId = user.Id,
+            Token = tokenHash,
+            ExpiresAt = expiresAt ?? DateTime.UtcNow.AddDays(AuthConstants.RefreshTokenDays),
+            RevokedAt = revokedAt,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+
+        await using (var seed = CreateContext())
+        {
+            seed.RefreshTokens.Add(entity);
+            await seed.SaveChangesAsync();
+        }
+
+        return entity;
+    }
+
+    /// <summary>
+    /// Reads the raw refresh token from the single Set-Cookie header. The
+    /// cookie is Secure, so it is replayed manually via the Cookie header
+    /// instead of relying on an HttpClient cookie container.
+    /// </summary>
+    protected static string ExtractRefreshToken(HttpResponseMessage response)
+    {
+        var setCookie = Assert.Single(response.Headers.GetValues("Set-Cookie"));
+        Assert.StartsWith("refresh_token=", setCookie, StringComparison.OrdinalIgnoreCase);
+        var value = setCookie["refresh_token=".Length..];
+        var end = value.IndexOf(';');
+        return end < 0 ? value : value[..end];
+    }
+
+    protected static async Task<string> ReadAccessTokenAsync(HttpResponseMessage response)
+    {
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return payload.GetProperty("accessToken").GetString()
+            ?? throw new InvalidOperationException("accessToken missing from response.");
+    }
+
+    protected async Task<HttpResponseMessage> PostRefreshAsync(string? cookieValue)
+    {
+        ClearLogs();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/refresh");
+        if (cookieValue is not null)
+        {
+            request.Headers.TryAddWithoutValidation(
+                "Cookie",
+                $"{AuthConstants.RefreshTokenCookieName}={cookieValue}");
+        }
+
+        return await Client.SendAsync(request);
+    }
+}
