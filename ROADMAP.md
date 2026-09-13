@@ -28,7 +28,7 @@
 
 - [x] **1.1** BaseEntity + enums (`AppointmentStatus`, `UserRole`) + interfaces de repositório. **Spec ref: 4**
 - [x] **1.2** EF Core DbContext + mappings de todas as entidades + Global Query Filters (`TenantId`, `IsDeleted`) + índice filtrado UNIQUE `(DoctorId, StartTime)` + primeira migration. **Spec ref: 3.2, 4, 9**
-- [ ] **1.3** Auth: login + JWT (15 min) + refresh token (7 dias, hash no DB, cookie httpOnly `Path=/api/v1/auth`) + `ITenantContext` (Scoped) + endpoints `POST /api/v1/auth/login` e `POST /api/v1/auth/refresh`. **Spec ref: 5.1, 7.1, 9, 15**
+- [x] **1.3** Auth: login + JWT (15 min) + refresh token (7 dias, hash no DB, cookie httpOnly `Path=/api/v1/auth`) + `ITenantContext` (Scoped) + endpoints `POST /api/v1/auth/login` e `POST /api/v1/auth/refresh`. **Spec ref: 5.1, 7.1, 9, 15**
 - [ ] **1.4** Middleware de erro global + ProblemDetails (RFC 7807 com `errorCode`, `message`, `details?`) + health checks `/health` e `/health/ready` + headers de segurança + Swagger em dev/staging. **Spec ref: 3.2, 9, 10.1, 15.4**
 
 ## Milestone 2 — Provisionamento e IAM (2 tasks)
