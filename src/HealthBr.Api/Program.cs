@@ -9,6 +9,9 @@ using HealthBr.Application.Common.Security;
 using HealthBr.Application.Features.Auth.Commands;
 using HealthBr.Application.Features.Auth.Validators;
 using HealthBr.Application.Features.Tenants.Commands;
+using HealthBr.Application.Features.Users.Commands;
+using HealthBr.Application.Features.Users.Queries;
+using HealthBr.Domain.Enums;
 using HealthBr.Domain.Repositories;
 using HealthBr.Infrastructure.Auth;
 using HealthBr.Infrastructure.MultiTenancy;
@@ -95,9 +98,38 @@ builder.Services
                 logger.LogWarning("Token JWT rejected: {Reason}", context.Exception.Message);
                 return Task.CompletedTask;
             },
+
+            // Spec 15.6: denied accesses (403) are security events carrying
+            // the endpoint and the caller's role. The authorization pipeline
+            // does not throw, so this event is the only hook where the 403 is
+            // observable.
+            OnForbidden = context =>
+            {
+                var logger = context.HttpContext.RequestServices
+                    .GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("HealthBr.Api.Auth");
+                var user = context.HttpContext.User;
+                logger.LogWarning(
+                    "Access denied: {Method} {Path} (subject {Subject}, role {Role})",
+                    context.HttpContext.Request.Method,
+                    context.HttpContext.Request.Path,
+                    user.FindFirst(AuthConstants.UserIdClaim)?.Value ?? "unknown",
+                    user.FindFirst(AuthConstants.RoleClaim)?.Value ?? "unknown");
+                return Task.CompletedTask;
+            },
         };
     });
-builder.Services.AddAuthorization();
+
+// Spec 5.2: policies named exactly as the permissions matrix. Roles are read
+// through the RoleClaimType ("role") configured above, so the policy compares
+// the role claim issued at login — the backend is the source of truth for
+// authorization (spec 5.2/15.1).
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(
+        AuthConstants.DoctorOnlyPolicy,
+        policy => policy.RequireRole(nameof(UserRole.Doctor)));
+});
 
 // The tenant context is resolved as the interface everywhere; only the
 // authentication middleware receives the concrete type, making it the sole
@@ -112,7 +144,11 @@ builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAccessTokenService, JwtTokenService>();
 builder.Services.AddScoped<LoginCommandHandler>();
 builder.Services.AddScoped<RefreshTokenCommandHandler>();
+builder.Services.AddScoped<LogoutCommandHandler>();
 builder.Services.AddScoped<CreateTenantCommandHandler>();
+builder.Services.AddScoped<GetCurrentUserQueryHandler>();
+builder.Services.AddScoped<ListUsersQueryHandler>();
+builder.Services.AddScoped<CreateUserCommandHandler>();
 
 builder.Services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();
 

@@ -21,6 +21,15 @@ public static class AuthConstants
 
     public const string RoleClaim = "role";
 
+    public const string UserIdClaim = "sub";
+
+    /// <summary>
+    /// Authorization policy names (spec 5.2 permissions matrix). The exact
+    /// names are part of the API contract — controllers and the DI
+    /// registration must reference this constant, never a bare string.
+    /// </summary>
+    public const string DoctorOnlyPolicy = "DoctorOnly";
+
     /// <summary>
     /// Truncated token representation safe for logs: at most the first 8
     /// characters followed by "..." (spec 15.6 — never log full tokens).
