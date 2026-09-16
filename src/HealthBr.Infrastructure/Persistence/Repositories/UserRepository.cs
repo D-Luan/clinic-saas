@@ -18,4 +18,7 @@ public sealed class UserRepository(HealthBrDbContext context) : IUserRepository
         await context.Users
             .IgnoreQueryFilters() // pre-authentication lookup, see IUserRepository
             .SingleOrDefaultAsync(user => user.Id == id && !user.IsDeleted, cancellationToken);
+
+    public async Task AddAsync(User user, CancellationToken cancellationToken = default) =>
+        await context.Users.AddAsync(user, cancellationToken);
 }

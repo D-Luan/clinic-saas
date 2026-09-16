@@ -8,6 +8,7 @@ using HealthBr.Application.Common.Interfaces;
 using HealthBr.Application.Common.Security;
 using HealthBr.Application.Features.Auth.Commands;
 using HealthBr.Application.Features.Auth.Validators;
+using HealthBr.Application.Features.Tenants.Commands;
 using HealthBr.Domain.Repositories;
 using HealthBr.Infrastructure.Auth;
 using HealthBr.Infrastructure.MultiTenancy;
@@ -105,11 +106,13 @@ builder.Services.AddScoped<TenantContext>();
 builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantContext>());
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ITenantRepository, TenantRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAccessTokenService, JwtTokenService>();
 builder.Services.AddScoped<LoginCommandHandler>();
 builder.Services.AddScoped<RefreshTokenCommandHandler>();
+builder.Services.AddScoped<CreateTenantCommandHandler>();
 
 builder.Services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();
 
