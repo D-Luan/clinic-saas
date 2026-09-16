@@ -35,7 +35,7 @@
 
 <!-- Para cada task desta milestone, siga o fluxo autônomo de Git descrito em AGENTS.md. Abra um PR por task. Não faça merge — aguarde revisão do usuário. -->
 
-- [ ] **2.1** Endpoint público `POST /api/v1/tenants` (cria Tenant + primeiro User Doctor em transação única; unicidade global de `adminEmail`). **Spec ref: 5.1**
+- [x] **2.1** Endpoint público `POST /api/v1/tenants` (cria Tenant + primeiro User Doctor em transação única; unicidade global de `adminEmail`). **Spec ref: 5.1**
 - [ ] **2.2** Endpoint `GET /api/v1/me` + policies de autorização (`DoctorOnly`) + endpoints `GET/POST /api/v1/users` (apenas Doctor) + `POST /api/v1/auth/logout`. **Spec ref: 5.2, 9**
 
 ## Milestone 3 — Feature: Patients end-to-end (3 tasks)
