@@ -44,24 +44,27 @@ internal sealed class TenantProbeFilter(TenantProbe probe) : IStartupFilter
 /// <summary>
 /// Boots the real Api pipeline on top of the shared Testcontainers SQL Server
 /// connection and per-test rollback transaction. The JWT signing key is a
-/// fixed test-only value supplied through in-memory configuration.
+/// fixed test-only value supplied through in-memory configuration. The
+/// environment defaults to "Testing"; task 1.4 tests boot "Development" and
+/// "Production" variants to assert the environment-gated Swagger middleware.
 /// </summary>
 internal sealed class AuthApiFactory(
     SqlConnection connection,
     SqlTransaction transaction,
     ILoggerProvider loggerProvider,
-    TenantProbe tenantProbe) : WebApplicationFactory<Program>
+    TenantProbe tenantProbe,
+    string environment = "Testing") : WebApplicationFactory<Program>
 {
     public const string TestSigningKey = "integration-test-signing-key-0123456789abcdef";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // "Testing" keeps user-secrets out of the test host. The values the
-        // Program.cs startup guards require (connection string + JWT signing
-        // key) are supplied as environment variables by ApiTestBase: the
-        // in-memory configuration added here is not applied until after the
-        // application builder has run its guards.
-        builder.UseEnvironment("Testing");
+        // Non-Development environments keep user-secrets out of the test
+        // host; a "Development" boot may load them, but the environment
+        // variables set by ApiTestBase (connection string + JWT signing
+        // key) win over user-secrets in the configuration order and satisfy
+        // the Program.cs startup guards either way.
+        builder.UseEnvironment(environment);
         builder.ConfigureTestServices(services =>
         {
             // Replace the app DbContext with one bound to the shared

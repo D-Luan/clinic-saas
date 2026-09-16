@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 
 using HealthBr.IntegrationTests.Persistence;
 
@@ -116,12 +117,23 @@ public sealed class AuthEndpointTests(SqlServerFixture fixture) : ApiTestBase(fi
         var unknownEmail = await LoginAsync("ghost@clinic.com", "WrongPassword1!");
 
         Assert.Equal(wrongPassword.StatusCode, unknownEmail.StatusCode);
+        // The ProblemDetails bodies match on every field except traceId,
+        // which is unique per request by design (spec 10.1) and carries no
+        // information about the account.
         Assert.Equal(
-            await wrongPassword.Content.ReadAsStringAsync(),
-            await unknownEmail.Content.ReadAsStringAsync());
+            await BodyWithoutTraceIdAsync(wrongPassword),
+            await BodyWithoutTraceIdAsync(unknownEmail));
         Assert.Contains(Logs, entry =>
             entry.Level == LogLevel.Warning
             && entry.Message.Contains("ghost@clinic.com"));
+    }
+
+    private static async Task<string> BodyWithoutTraceIdAsync(HttpResponseMessage response)
+    {
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var mutable = JsonSerializer.SerializeToNode(payload);
+        mutable!.AsObject().Remove("traceId");
+        return mutable.ToJsonString();
     }
 
     [Fact]

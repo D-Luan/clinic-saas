@@ -27,6 +27,14 @@ public abstract class ApiTestBase : DatabaseTestBase
 
     protected HttpClient Client => _client;
 
+    /// <summary>
+    /// Boots an extra Api host on top of the same connection/transaction
+    /// under a different environment (Swagger visibility, CSP relaxation).
+    /// Callers own the factory's lifetime.
+    /// </summary>
+    internal AuthApiFactory CreateFactory(string environment) =>
+        new(Connection, Transaction, _loggerProvider, TenantProbe, environment);
+
     protected TenantProbe TenantProbe { get; } = new();
 
     protected IReadOnlyList<LogEntry> Logs => _loggerProvider.Entries;
