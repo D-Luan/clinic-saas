@@ -1,10 +1,7 @@
-using FluentValidation;
-
 using HealthBr.Application.Common.Exceptions;
 using HealthBr.Application.Common.Security;
 using HealthBr.Application.Features.Auth.Commands;
 using HealthBr.Application.Features.Auth.Dto;
-using HealthBr.Application.Features.Auth.Validators;
 
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,36 +10,17 @@ namespace HealthBr.Api.Controllers;
 [ApiController]
 [Route("api/v1/auth")]
 public sealed class AuthController(
-    IValidator<LoginRequest> loginValidator,
     LoginCommandHandler loginHandler,
     RefreshTokenCommandHandler refreshHandler) : ControllerBase
 {
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
-        // Error shape is intentionally simple until the global error pipeline
-        // lands (task 1.4, spec 10.1).
-        var validation = await loginValidator.ValidateAsync(request, cancellationToken);
-        if (!validation.IsValid)
-        {
-            var errors = validation.Errors
-                .GroupBy(failure => failure.PropertyName, StringComparer.Ordinal)
-                .ToDictionary(
-                    group => group.Key,
-                    group => group.Select(failure => failure.ErrorMessage).ToArray());
-            return BadRequest(new { message = "Dados inválidos.", errors });
-        }
-
-        try
-        {
-            var result = await loginHandler.HandleAsync(new LoginCommand(request.Email, request.Password), cancellationToken);
-            SetRefreshTokenCookie(result.RefreshToken);
-            return Ok(new AccessTokenResponse(result.AccessToken));
-        }
-        catch (InvalidCredentialsException)
-        {
-            return Unauthorized(new { message = "Credenciais inválidas." });
-        }
+        // Validation happens in FluentValidationFilter and failures surface
+        // as ProblemDetails through the global error pipeline (spec 10.1).
+        var result = await loginHandler.HandleAsync(new LoginCommand(request.Email, request.Password), cancellationToken);
+        SetRefreshTokenCookie(result.RefreshToken);
+        return Ok(new AccessTokenResponse(result.AccessToken));
     }
 
     [HttpPost("refresh")]
@@ -53,19 +31,14 @@ public sealed class AuthController(
         if (!Request.Cookies.TryGetValue(AuthConstants.RefreshTokenCookieName, out var rawToken)
             || string.IsNullOrWhiteSpace(rawToken))
         {
-            return Unauthorized(new { message = "Sessão expirada." });
+            // Generic 401 through the global pipeline: never reveals whether
+            // a session ever existed (spec 15.1).
+            throw new InvalidCredentialsException("Sessão expirada.");
         }
 
-        try
-        {
-            var result = await refreshHandler.HandleAsync(new RefreshTokenCommand(rawToken), cancellationToken);
-            SetRefreshTokenCookie(result.RefreshToken);
-            return Ok(new AccessTokenResponse(result.AccessToken));
-        }
-        catch (InvalidCredentialsException)
-        {
-            return Unauthorized(new { message = "Sessão expirada." });
-        }
+        var result = await refreshHandler.HandleAsync(new RefreshTokenCommand(rawToken), cancellationToken);
+        SetRefreshTokenCookie(result.RefreshToken);
+        return Ok(new AccessTokenResponse(result.AccessToken));
     }
 
     // Spec 15.5: HttpOnly, Secure, SameSite=Strict, Path=/api/v1/auth, 7 days.
