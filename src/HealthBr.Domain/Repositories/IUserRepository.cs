@@ -25,4 +25,32 @@ public interface IUserRepository
     /// with a single save (spec 5.1).
     /// </summary>
     Task AddAsync(User user, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tenant-scoped lookup by id for the authenticated surface (spec 15.1):
+    /// identity data comes from the JWT, and the user is only found when it
+    /// belongs to the given tenant and is active — a token pointing at
+    /// another tenant's user matches nothing (fail-safe, spec 15.7).
+    /// </summary>
+    Task<User?> FindActiveInTenantAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// One page of the tenant's active users in e-mail order (spec 9:
+    /// deterministic pagination — e-mail is unique per tenant among active
+    /// users, a strict total order). <paramref name="skip"/>/<paramref name="take"/>
+    /// are caller-computed so the repository stays free of paging conventions.
+    /// </summary>
+    Task<IReadOnlyList<User>> ListActiveInTenantAsync(Guid tenantId, int skip, int take, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Total active users in the tenant, for the <c>total</c>/<c>totalPages</c>
+    /// members of the paged list contract (spec 9).
+    /// </summary>
+    Task<int> CountActiveInTenantAsync(Guid tenantId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Persists staged users in one implicit transaction (single save, same
+    /// contract as <see cref="ITenantRepository.SaveChangesAsync"/>).
+    /// </summary>
+    Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

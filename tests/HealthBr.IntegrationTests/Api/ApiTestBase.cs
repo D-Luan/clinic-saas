@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -149,5 +151,53 @@ public abstract class ApiTestBase : DatabaseTestBase
         }
 
         return await Client.SendAsync(request);
+    }
+
+    /// <summary>
+    /// Provisions a tenant through the public endpoint (task 2.1 pattern) and
+    /// returns its id — the authenticated surface of task 2.2 builds on it.
+    /// </summary>
+    protected async Task<Guid> ProvisionTenantAsync(
+        string adminEmail,
+        string clinicName = "Clínica Exemplo",
+        string adminName = "Dra. Ana Souza")
+    {
+        var response = await Client.PostAsJsonAsync(
+            "/api/v1/tenants",
+            new { clinicName, adminName, adminEmail, adminPassword = DefaultPassword });
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return payload.GetProperty("tenantId").GetGuid();
+    }
+
+    protected async Task<string> LoginForAccessTokenAsync(string email, string password)
+    {
+        var response = await Client.PostAsJsonAsync("/api/v1/auth/login", new { email, password });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return await ReadAccessTokenAsync(response);
+    }
+
+    /// <summary>
+    /// Full login returning the access token and the raw refresh token read
+    /// from the Set-Cookie header (the cookie is Secure, so tests replay it
+    /// manually).
+    /// </summary>
+    protected async Task<(string AccessToken, string RefreshCookie)> LoginForSessionAsync(string email, string password)
+    {
+        var response = await Client.PostAsJsonAsync("/api/v1/auth/login", new { email, password });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return (await ReadAccessTokenAsync(response), ExtractRefreshToken(response));
+    }
+
+    protected static HttpRequestMessage AuthorizedRequest(HttpMethod method, string url, string accessToken, object? body = null)
+    {
+        var request = new HttpRequestMessage(method, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body);
+        }
+
+        return request;
     }
 }

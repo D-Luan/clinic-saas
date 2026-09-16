@@ -3,6 +3,7 @@ using HealthBr.Application.Common.Security;
 using HealthBr.Application.Features.Auth.Commands;
 using HealthBr.Application.Features.Auth.Dto;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HealthBr.Api.Controllers;
@@ -11,7 +12,8 @@ namespace HealthBr.Api.Controllers;
 [Route("api/v1/auth")]
 public sealed class AuthController(
     LoginCommandHandler loginHandler,
-    RefreshTokenCommandHandler refreshHandler) : ControllerBase
+    RefreshTokenCommandHandler refreshHandler,
+    LogoutCommandHandler logoutHandler) : ControllerBase
 {
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
@@ -39,6 +41,34 @@ public sealed class AuthController(
         var result = await refreshHandler.HandleAsync(new RefreshTokenCommand(rawToken), cancellationToken);
         SetRefreshTokenCookie(result.RefreshToken);
         return Ok(new AccessTokenResponse(result.AccessToken));
+    }
+
+    [HttpPost("logout")]
+    [Authorize] // any role: every authenticated user can end their session
+    public async Task<IActionResult> Logout(CancellationToken cancellationToken)
+    {
+        // Idempotent (task 2.2 brief): the cookie is the only source; no
+        // cookie means nothing to revoke and still answers 204 — the
+        // response never leaks whether a session existed (spec 15.1).
+        if (Request.Cookies.TryGetValue(AuthConstants.RefreshTokenCookieName, out var rawToken)
+            && !string.IsNullOrWhiteSpace(rawToken))
+        {
+            await logoutHandler.HandleAsync(new LogoutCommand(rawToken), cancellationToken);
+        }
+
+        // Deletion must use the same Path the cookie was set with, otherwise
+        // the browser keeps it (spec 15.5).
+        Response.Cookies.Delete(
+            AuthConstants.RefreshTokenCookieName,
+            new CookieOptions
+            {
+                Secure = true,
+                HttpOnly = true,
+                SameSite = SameSiteMode.Strict,
+                Path = AuthConstants.RefreshTokenCookiePath,
+            });
+
+        return NoContent();
     }
 
     // Spec 15.5: HttpOnly, Secure, SameSite=Strict, Path=/api/v1/auth, 7 days.
