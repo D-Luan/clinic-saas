@@ -18,4 +18,11 @@ public interface IUserRepository
     /// before any tenant context exists. Soft-deleted users are excluded.
     /// </summary>
     Task<User?> FindActiveByIdAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Stages a new user; it is persisted when the caller saves. Tenant
+    /// provisioning stages tenant and admin user together and writes both
+    /// with a single save (spec 5.1).
+    /// </summary>
+    Task AddAsync(User user, CancellationToken cancellationToken = default);
 }
